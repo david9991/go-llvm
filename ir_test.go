@@ -13,15 +13,17 @@
 package llvm
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
 
 func testAttribute(t *testing.T, name string) {
-	mod := NewModule("")
+	ctx := NewContext()
+	mod := ctx.NewModule("")
 	defer mod.Dispose()
 
-	ftyp := FunctionType(VoidType(), nil, false)
+	ftyp := FunctionType(ctx.VoidType(), nil, false)
 	fn := AddFunction(mod, "foo", ftyp)
 
 	kind := AttributeKindID(name)
@@ -89,15 +91,23 @@ func TestAttributes(t *testing.T) {
 	}
 
 	for _, name := range attrTests {
+		majorVersion, err := strconv.Atoi(strings.SplitN(Version, ".", 2)[0])
+		if err != nil {
+			// sanity check, should be unreachable
+			t.Errorf("could not parse LLVM version: %v", err)
+		}
+		if majorVersion >= 15 && name == "uwtable" {
+			// This changed from an EnumAttr to an IntAttr in LLVM 15, and testAttribute doesn't work on such attributes.
+			continue
+		}
 		testAttribute(t, name)
 	}
 }
 
 func TestDebugLoc(t *testing.T) {
-	mod := NewModule("")
+	ctx := NewContext()
+	mod := ctx.NewModule("")
 	defer mod.Dispose()
-
-	ctx := mod.Context()
 
 	b := ctx.NewBuilder()
 	defer b.Dispose()
